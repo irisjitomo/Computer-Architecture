@@ -2,12 +2,19 @@
 
 import sys
 
+LDI = 0b10000010
+EIGHT = 0b00001000 # this is 8
+PRINT_NUM = 0b01000111 # PRN R0
+HALT = 0b00000001 # HLT
+
 class CPU:
     """Main CPU class."""
 
     def __init__(self):
         """Construct a new CPU."""
-        pass
+        self.pc = 0
+        self.reg = [0] * 8 # 8 general-purpose registers
+        self.ram = [0] * 256 # memory with 256 bytes
 
     def load(self):
         """Load a program into memory."""
@@ -16,19 +23,32 @@ class CPU:
 
         # For now, we've just hardcoded a program:
 
+        '''
+        This code above requires the implementation of three instructions:
+
+        * `LDI`: load "immediate", store a value in a register, or "set this register to
+        this value".
+        * `PRN`: a pseudo-instruction that prints the numeric value stored in a
+        register.
+        * `HLT`: halt the CPU and exit the emulator.
+        '''
+        
+
         program = [
             # From print8.ls8
-            0b10000010, # LDI R0,8
+            LDI, # LDI R0,8
             0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
+            EIGHT, # this is 8
+            PRINT_NUM, # PRN R0
             0b00000000,
-            0b00000001, # HLT
+            HALT, # HLT
         ]
 
         for instruction in program:
             self.ram[address] = instruction
             address += 1
+
+        
 
 
     def alu(self, op, reg_a, reg_b):
@@ -60,6 +80,37 @@ class CPU:
 
         print()
 
+    def ram_read(self, mar):
+        return self.ram[mar]
+
+    def ram_write(self, mar, mdr):
+        self.ram[mar] = mdr
+
+    def reg_write(self, reg, num): # implemented my own write to reg function
+        self.reg[reg] = num
+
     def run(self):
         """Run the CPU."""
-        pass
+        running = True
+
+        while running:
+            instruction = self.ram[self.pc]
+
+            if instruction == LDI:
+                reg = self.ram_read(self.pc + 1)
+                num = self.ram_read(self.pc + 2)
+                self.reg_write(reg, num) # should store num (8) in reg (0)
+                self.pc += 3
+
+            elif instruction == PRINT_NUM:
+                reg = self.ram_read(self.pc + 1)
+                print(self.reg[reg])
+                self.pc += 2
+            
+            elif instruction == HALT:
+                running == False
+                sys.exit(0)
+
+            else:
+                print(f"Unknown instruction in {instruction}")
+                sys.exit(1)
