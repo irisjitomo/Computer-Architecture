@@ -2,10 +2,10 @@
 
 import sys
 
-LDI = 0b10000010
-EIGHT = 0b00001000 # this is 8
-PRINT_NUM = 0b01000111 # PRN R0
-HALT = 0b00000001 # HLT
+# LDI = 10000010
+# EIGHT = 00001000 # this is 8
+# PRINT_NUM = 01000111 # PRN R0
+# HALT = 00000001 # HLT
 
 class CPU:
     """Main CPU class."""
@@ -16,39 +16,31 @@ class CPU:
         self.reg = [0] * 8 # 8 general-purpose registers
         self.ram = [0] * 256 # memory with 256 bytes
 
-    def load(self):
+    def load(self, program):
         """Load a program into memory."""
 
         address = 0
 
-        # For now, we've just hardcoded a program:
+        try:
+            with open(program) as p:
+                for line in p:
 
-        '''
-        This code above requires the implementation of three instructions:
+                    # ignore comments
+                    comment_split = line.split("#")
 
-        * `LDI`: load "immediate", store a value in a register, or "set this register to
-        this value".
-        * `PRN`: a pseudo-instruction that prints the numeric value stored in a
-        register.
-        * `HLT`: halt the CPU and exit the emulator.
-        '''
-        
+                    #Strip out whitespace
+                    num = comment_split[0].strip()
 
-        program = [
-            # From print8.ls8
-            LDI, # LDI R0,8
-            0b00000000,
-            EIGHT, # this is 8
-            PRINT_NUM, # PRN R0
-            0b00000000,
-            HALT, # HLT
-        ]
+                    if num == "":
+                        continue
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+                    instruction = int(num, 2)
+                    self.ram[address] = instruction
+                    address += 1
 
-        
+        except FileNotFoundError:
+            print('FILE NOT FOUND')
+            sys.exit(2)
 
 
     def alu(self, op, reg_a, reg_b):
@@ -56,7 +48,10 @@ class CPU:
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "SUB": 
+            self.reg[reg_a] -= self.reg[reg_b]
+        elif op == "MUL":
+            self.reg[reg_a] *= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -95,19 +90,25 @@ class CPU:
 
         while running:
             instruction = self.ram[self.pc]
+            reg1 = self.ram_read(self.pc + 1)
+            reg2 = self.ram_read(self.pc + 2)
 
-            if instruction == LDI:
+            if instruction == 0b10000010 or instruction == 'LDI':
                 reg = self.ram_read(self.pc + 1)
                 num = self.ram_read(self.pc + 2)
-                self.reg_write(reg, num) # should store num (8) in reg (0)
+                self.reg_write(reg, num) # should store num in reg
                 self.pc += 3
 
-            elif instruction == PRINT_NUM:
-                reg = self.ram_read(self.pc + 1)
-                print(self.reg[reg])
+            elif instruction == 0b10100010 or instruction == 'MUL': # MUL
+                self.alu('MUL', reg1, reg2)
+                self.pc += 3
+
+            elif instruction == 0b01000111  or instruction == 'PRN':
+                # reg = self.ram_read(self.pc + 1)
+                print(self.reg[reg1])
                 self.pc += 2
             
-            elif instruction == HALT:
+            elif instruction == 0b00000001 or instruction == 'HLT':
                 running == False
                 sys.exit(0)
 
