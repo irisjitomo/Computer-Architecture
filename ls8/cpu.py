@@ -79,19 +79,21 @@ class CPU:
         return self.ram[mar]
 
     def ram_write(self, mar, mdr):
-        self.ram[mar] = mdr
+        self.ram[mdr] = mar
 
     def reg_write(self, reg, num): # implemented my own write to reg function
         self.reg[reg] = num
 
     def run(self):
         """Run the CPU."""
+        sp = 255
         running = True
 
         while running:
             instruction = self.ram[self.pc]
             reg1 = self.ram_read(self.pc + 1)
             reg2 = self.ram_read(self.pc + 2)
+            self.reg[7] = sp
 
             if instruction == 0b10000010 or instruction == 'LDI':
                 reg = self.ram_read(self.pc + 1)
@@ -111,6 +113,16 @@ class CPU:
             elif instruction == 0b00000001 or instruction == 'HLT':
                 running == False
                 sys.exit(0)
+            
+            elif instruction == 0b01000101 or instruction == 'PUSH':
+                sp -= 1
+                self.ram_write(self.reg[reg1], sp)
+                self.pc += 2
+            elif instruction == 0b01000110 or instruction == 'POP':
+                self.reg[reg1] = self.ram_read(sp)
+                sp += 1
+
+                self.pc += 2
 
             else:
                 print(f"Unknown instruction in {instruction}")
