@@ -2,19 +2,22 @@
 
 import sys
 
-# LDI = 10000010
-# EIGHT = 00001000 # this is 8
-# PRINT_NUM = 01000111 # PRN R0
-# HALT = 00000001 # HLT
-
 class CPU:
     """Main CPU class."""
 
     def __init__(self):
         """Construct a new CPU."""
-        self.pc = 0
         self.reg = [0] * 8 # 8 general-purpose registers
+        self.pc = 0
         self.ram = [0] * 256 # memory with 256 bytes
+        self.fl = 7
+
+        
+    def ram_read(self, mar):
+        return self.ram[mar]
+
+    def ram_write(self, mar, mdr):
+        self.ram[mdr] = mar
 
     def load(self, program):
         """Load a program into memory."""
@@ -52,6 +55,13 @@ class CPU:
             self.reg[reg_a] -= self.reg[reg_b]
         elif op == "MUL":
             self.reg[reg_a] *= self.reg[reg_b]
+        elif op == "CMP":
+            if self.reg[reg_a] < self.reg[reg_b]:
+                self.fl = 0b00000100
+            elif self.reg[reg_a] > self.reg[reg_b]:
+                self.fl = 0b00000010
+            elif self.reg[reg_a] == self.reg[reg_b]:
+                self.fl = 0b00000001
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -63,7 +73,7 @@ class CPU:
 
         print(f"TRACE: %02X | %02X %02X %02X |" % (
             self.pc,
-            #self.fl,
+            self.fl,
             #self.ie,
             self.ram_read(self.pc),
             self.ram_read(self.pc + 1),
@@ -75,11 +85,6 @@ class CPU:
 
         print()
 
-    def ram_read(self, mar):
-        return self.ram[mar]
-
-    def ram_write(self, mar, mdr):
-        self.ram[mdr] = mar
 
     def reg_write(self, reg, num): # implemented my own write to reg function
         self.reg[reg] = num
@@ -90,39 +95,57 @@ class CPU:
         running = True
 
         while running:
-            instruction = self.ram[self.pc]
+            instruction = self.ram_read(self.pc)
             reg1 = self.ram_read(self.pc + 1)
             reg2 = self.ram_read(self.pc + 2)
+
             self.reg[7] = sp
 
             if instruction == 0b10000010 or instruction == 'LDI':
-                reg = self.ram_read(self.pc + 1)
-                num = self.ram_read(self.pc + 2)
-                self.reg_write(reg, num) # should store num in reg
+                self.reg_write(reg1, reg2) # should store num in reg
                 self.pc += 3
-
-            elif instruction == 0b10100010 or instruction == 'MUL': # MUL
-                self.alu('MUL', reg1, reg2)
-                self.pc += 3
-
             elif instruction == 0b01000111  or instruction == 'PRN':
-                # reg = self.ram_read(self.pc + 1)
                 print(self.reg[reg1])
                 self.pc += 2
-            
             elif instruction == 0b00000001 or instruction == 'HLT':
                 running == False
                 sys.exit(0)
-            
+            elif instruction == 0b10100000 or instruction == "ADD":
+                self.alu('ADD', reg1, reg2)
+                self.pc += 3
+            elif instruction == 0b10100010 or instruction == 'MUL': # MUL
+                self.alu('MUL', reg1, reg2)
+                self.pc += 3
             elif instruction == 0b01000101 or instruction == 'PUSH':
                 sp -= 1
                 self.ram_write(self.reg[reg1], sp)
                 self.pc += 2
+            elif instruction == 0b01010000 or instruction == 'CALL':
+                sp -= 1
+                self.ram_write(self.pc, sp)
+                self.pc = self.reg[reg1]
+            elif instruction == 0b00010001 or instruction == "RET":
+                self.pc = self.ram_read(sp) + 2
+                sp += 1
             elif instruction == 0b01000110 or instruction == 'POP':
                 self.reg[reg1] = self.ram_read(sp)
                 sp += 1
-
                 self.pc += 2
+            elif instruction == 0b10100111 or instruction == 'CMP':
+                self.alu('CMP', reg1, reg2)
+                self.pc += 3
+            elif instruction == 0b01010100 or instruction == "JMP":
+                self.pc = self.reg[reg1]
+            elif instruction == 0b01010101 or instruction == 'JEQ':
+                if self.fl == 0b00000001:
+                    self.pc = self.reg[reg1]
+                else:
+                    self.pc += 2
+            elif instruction == 0b01010110 or instruction == 'JNE':
+                if self.fl == 0b00000010 or self.fl == 0b00000100:
+                    self.pc = self.reg[reg1]
+                else:
+                    self.pc += 2
 
             else:
                 print(f"Unknown instruction in {instruction}")
